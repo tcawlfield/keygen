@@ -37,8 +37,8 @@ impl <'a> fmt::Display for KeyPenaltyResult<'a>
 }
 
 static BASE_PENALTY: KeyMap<f64> = KeyMap([
-	3.0, 1.0, 1.0, 1.5, 3.0,    3.0, 1.5, 1.0, 1.0, 3.0, 4.0,
-	0.5, 0.5, 0.0, 0.0, 1.5,    1.5, 0.0, 0.0, 0.5, 0.5, 2.0,
+	1.5, 1.0, 1.0, 1.5, 3.0,    3.0, 1.5, 1.0, 1.0, 1.5, 4.0,
+	0.5, 0.5, 0.25, 0.25, 1.5,    1.5, 0.25, 0.25, 0.5, 0.5, 2.0,
 	2.0, 2.0, 1.5, 1.5, 2.5,    2.5, 1.5, 1.5, 2.0, 2.0,
 	                    0.0,    0.0]);
 
@@ -52,7 +52,7 @@ pub fn init<'a>()
 		name: "base",
 	});
 
-	// Penalise 5 points for using the same finger twice on different keys.
+	// Penalise 5 points for using the same finger twice ~~on different keys~~.
 	// An extra 5 points for using the centre column.
 	penalties.push(KeyPenalty {
 		name: "same finger",
@@ -120,6 +120,11 @@ pub fn init<'a>()
 	// three rows of the keyboard in a roll.
 	penalties.push(KeyPenalty {
 		name: "twist",
+	});
+
+	// Penalise 1 points for returning to the same finger recently used.
+	penalties.push(KeyPenalty {
+		name: "aba",
 	});
 
 	penalties
@@ -255,9 +260,13 @@ fn penalize<'a, 'b>(
 		let slice2 = &string[(len - 2)..len];
 
 		// 1: Same finger.
-		if curr.finger == old1.finger && curr.pos != old1.pos {
-			let penalty = 5.0 + if curr.center { 5.0 } else { 0.0 }
-			                  + if old1.center { 5.0 } else { 0.0 };
+		if curr.finger == old1.finger {
+			let penalty = if curr.pos == old1.pos {
+				3.0
+			} else {
+				5.0 + if curr.center { 5.0 } else { 0.0 }
+					+ if old1.center { 5.0 } else { 0.0 }
+			};
 			let penalty = penalty * count;
 			if detailed {
 				*result[1].high_keys.entry(slice2).or_insert(0.0) += penalty;
@@ -376,6 +385,17 @@ fn penalize<'a, 'b>(
 			if detailed {
 				*result[12].high_keys.entry(slice3).or_insert(0.0) += penalty;
 				result[12].total += penalty;
+			}
+			total += penalty;
+		}
+
+		// 13: Repeated finger-before-last
+		if curr.finger == old2.finger {
+			let slice3 = &string[(len - 3)..len];
+			let penalty = 2.0 * count;
+			if detailed {
+				*result[13].high_keys.entry(slice3).or_insert(0.0) += penalty;
+				result[13].total += penalty;
 			}
 			total += penalty;
 		}
